@@ -1,37 +1,37 @@
-import cv2
-from ultralytics import YOLO
-
-model = YOLO("yolov8n.pt")
-
-cap = cv2.VideoCapture(0)
-
-person_found = False
-
-while not person_found:
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    results = model(frame)
-
-    boxes = results[0].boxes
-    for box in boxes:
-        x1, y1, x2, y2 = box.xyxy[0].tolist()
-        w, h = x2 - x1, y2 - y1
-        cls_id = int(box.cls[0])
-        label = model.names[cls_id]
-        if label == "person" and w > 500 and h > 500:
-            print(f"Label: {label}, Width: {w:.1f}, Height: {h:.1f}")
-            person_found = True
-
-    annotated_frame = results[0].plot()
-
-    cv2.imshow("YOLOv8", annotated_frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+# import cv2
+# from ultralytics import YOLO
+#
+# model = YOLO("yolov8n.pt")
+#
+# cap = cv2.VideoCapture(0)
+#
+# person_found = False
+#
+# while not person_found:
+#     ret, frame = cap.read()
+#     if not ret:
+#         break
+#
+#     results = model(frame)
+#
+#     boxes = results[0].boxes
+#     for box in boxes:
+#         x1, y1, x2, y2 = box.xyxy[0].tolist()
+#         w, h = x2 - x1, y2 - y1
+#         cls_id = int(box.cls[0])
+#         label = model.names[cls_id]
+#         if label == "person" and w > 700 and h > 500:
+#             print(f"Label: {label}, Width: {w:.1f}, Height: {h:.1f}")
+#             person_found = True
+#
+#     annotated_frame = results[0].plot()
+#
+#     cv2.imshow("YOLOv8", annotated_frame)
+#     if cv2.waitKey(1) & 0xFF == ord('q'):
+#         break
+#
+# cap.release()
+# cv2.destroyAllWindows()
 
 import sounddevice as sd
 from scipy.io.wavfile import write
@@ -42,9 +42,9 @@ filename = datetime.datetime.now()
 filename = str(filename) + ".wav"
 
 freq = 16000
-duration = 3
+duration = 10
 
-print("start talking")
+print("Recording started")
 
 recording = sd.rec(int(duration * freq), samplerate=freq, channels=1)
 
@@ -99,6 +99,7 @@ from aliyunsdkcore.client import AcsClient
 from aliyunsdkcore.request import CommonRequest
 from aliyunsdkcore.acs_exception.exceptions import ClientException
 from aliyunsdkcore.acs_exception.exceptions import ServerException
+import json
 
 load_dotenv()
 
@@ -190,8 +191,12 @@ def fileTrans(akId, akSecret, appKey, fileLink):
          print(getResponse)
          statusText = getResponse[KEY_STATUS_TEXT]
          if statusText == STATUS_RUNNING or statusText == STATUS_QUEUEING:
-            time.sleep(10)
+            time.sleep(0.2)
          else:
+            msg = json.dumps(getResponse, indent=4)
+            json_name = str(datetime.datetime.now()) + ".json"
+            with open(json_name, "w") as outfile:
+                outfile.write(msg)
             break
       except ServerException as e:
          print(e)
