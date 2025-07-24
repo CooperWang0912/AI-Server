@@ -9,6 +9,10 @@ from ultralytics import YOLO
 
 from pydantic import BaseModel
 
+import subprocess
+import signal
+camera_process = None
+
 model = YOLO("yolov8n.pt")
 
 app = FastAPI()
@@ -67,9 +71,43 @@ def read_identification():
     }
 
 @app.post("/api/start_recording")
-async def read_end_conversation():
-    os.system("python3 camera.py")
+async def read_start_recording():
+    global camera_process
+    if camera_process is None:
+        camera_process = subprocess.Popen(["python3", "camera.py"])
+        return {
+            "code": 0,
+            "message": "Started New Session"
+        }
+    else:
+        return {
+            "code": -1,
+            "message": "Recording Process Already Running"
+        }
+
+@app.post("/api/stop_program")
+async def stop_program():
+    global camera_process
+    if camera_process is not None:
+        os.kill(camera_process.pid, signal.SIGKILL)
+        camera_process = None
+        return {
+            "code": 0,
+            "message": "Program Terminated"
+        }
+    else:
+        return {
+            "code": -1,
+            "message": "Recording Process Not Running"
+        }
+
+@app.post("/api/clean_files")
+async def clean_files():
+    filenames = glob.glob('*.json')
+    filenames += glob.glob('*.wav')
+    for i in filenames:
+        os.remove(i)
     return {
         "code": 0,
-        "message": "Started New Session"
+        "message": "Files Cleaned"
     }
