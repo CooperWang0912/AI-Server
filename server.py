@@ -5,6 +5,9 @@ import os
 import json
 
 import cv2
+from starlette.requests import Request
+from starlette.responses import HTMLResponse
+from starlette.templating import Jinja2Templates
 from ultralytics import YOLO
 
 from pydantic import BaseModel
@@ -15,11 +18,9 @@ camera_process = None
 
 model = YOLO("yolov8n.pt")
 
-app = FastAPI()
+from fastapi.staticfiles import StaticFiles
 
-@app.get("/")
-def read_root():
-    return {"Test"}
+app = FastAPI()
 
 
 @app.get("/api/speech_recognition")
@@ -27,7 +28,7 @@ def read_transcription():
     list_of_files = glob.glob('*.json')
     latest_file = max(list_of_files, key=os.path.getctime)
     result = json.load(open(latest_file))
-    if result["StatusText"] != "SUCCESS":
+    if result is None:
         return {
             "code": -1,
             "message": "Transcription failed",
@@ -38,12 +39,16 @@ def read_transcription():
         return{
             "code": 0,
             "message": "Get Transcription Success",
-            "content": result["Result"]["Sentences"],
+            "content": result,
             "identify_people": ""
         }
 
 @app.get("/api/identify_people")
 def read_identification():
+    global camera_process
+
+    camera_process = None
+
     cap = cv2.VideoCapture(0)
 
     ret, frame = cap.read()
@@ -73,17 +78,16 @@ def read_identification():
 @app.post("/api/start_recording")
 async def read_start_recording():
     global camera_process
-    if camera_process is None:
-        camera_process = subprocess.Popen(["python3", "camera.py"])
-        return {
-            "code": 0,
-            "message": "Started New Session"
-        }
-    else:
-        return {
-            "code": -1,
-            "message": "Recording Process Already Running"
-        }
+    camera_process = subprocess.Popen(["python3", "ubuntu_test.py"])
+    camera_process.wait()
+    list_of_files = glob.glob('*.json')
+    latest_file = max(list_of_files, key=os.path.getctime)
+    result = json.load(open(latest_file))
+    return {
+        "code": 0,
+        "message": "Recording Finished",
+        "content": result
+    }
 
 @app.post("/api/stop_program")
 async def stop_program():

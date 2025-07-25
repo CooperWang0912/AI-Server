@@ -9,6 +9,8 @@ import dashscope
 from dashscope.audio.asr import *
 from dotenv import load_dotenv
 
+import time
+
 load_dotenv()
 dashscope.api_key = os.getenv("DASH_API_KEY")
 
@@ -19,6 +21,14 @@ block_size = 3200
 format_pcm = 'pcm'
 
 audio_q = queue.Queue()
+
+conversation_end = False
+
+transcription_results = []
+
+start_time = None
+cur_time = None
+actual_start_time = None
 
 class Callback(RecognitionCallback):
     def on_open(self) -> None:
@@ -36,12 +46,21 @@ class Callback(RecognitionCallback):
         sys.exit(1)
 
     def on_event(self, result: RecognitionResult) -> None:
+        global conversation_end
+        global transcription_results
+        global start_time
+        global cur_time
+        global actual_start_time
         sentence = result.get_sentence()
         if 'text' in sentence:
+            start_time = time.time()
             print('RecognitionCallback text:', sentence['text'])
             if RecognitionResult.is_sentence_end(sentence):
-                print('RecognitionCallback sentence end, request_id:%s, usage:%s' %
-                      (result.get_request_id(), result.get_usage(sentence)))
+                print('RecognitionCallback sentence end,', sentence['text'])
+                transcription_results.append(sentence['text'])
+                if cur_time - actual_start_time > 20:
+                    conversation_end = True
+
 
 def audio_callback(indata, frames, time, status):
     if status:
@@ -72,13 +91,28 @@ signal.signal(signal.SIGINT, signal_handler)
 
 print("Press Ctrl+C to stop recording and translation...")
 
+start_time = time.time()
+
+actual_start_time = time.time()
+
 with sd.InputStream(samplerate=sample_rate,
                     channels=channels,
                     dtype=dtype,
                     blocksize=block_size,
                     callback=audio_callback):
-    while True:
+    while not conversation_end:
+        cur_time = time.time()
         data = audio_q.get()
         recognition.send_audio_frame(data)
+        if cur_time - start_time > 3:
+            conversation_end = True
+
+
+import datetime
+import json
+
+json_name = str(datetime.datetime.now()) + ".json"
 
 recognition.stop()
+with open(json_name, "w") as final:
+    json.dump({"data": transcription_results}, final)
